@@ -1,95 +1,104 @@
 import streamlit as st
-import networkx as nx
-import matplotlib.pyplot as plt
 import pandas as pd
-from geopy.distance import geodesic
+import networkx as nx
+import random
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
 
-# Session state for pair data
-if 'data' not in st.session_state:
-    st.session_state.data = [
-        {"pair_id": "P1", "donor_bg": "A", "recipient_bg": "B", "hla_match": 3, "urgency": 2},
-        {"pair_id": "P2", "donor_bg": "B", "recipient_bg": "A", "hla_match": 4, "urgency": 3},
-        {"pair_id": "P3", "donor_bg": "O", "recipient_bg": "A", "hla_match": 5, "urgency": 1},
-        {"pair_id": "P4", "donor_bg": "A", "recipient_bg": "O", "hla_match": 2, "urgency": 2},
-        {"pair_id": "P5", "donor_bg": "B", "recipient_bg": "AB", "hla_match": 3, "urgency": 1},
-        {"pair_id": "P6", "donor_bg": "AB", "recipient_bg": "O", "hla_match": 1, "urgency": 3},
-        {"pair_id": "P7", "donor_bg": "O", "recipient_bg": "B", "hla_match": 4, "urgency": 2}
-    ]
+# Simulated patient-donor registry
+if 'pairs' not in st.session_state:
+    st.session_state.pairs = []
 
-compatibility = {
-    "O": ["O", "A", "B", "AB"],
-    "A": ["A", "AB"],
-    "B": ["B", "AB"],
-    "AB": ["AB"]
-}
+# Add patient-donor pair
+st.sidebar.title("Add Patient-Donor Pair")
+patient_name = st.sidebar.text_input("Patient Name")
+donor_name = st.sidebar.text_input("Donor Name")
+hla_score = st.sidebar.slider("Compatibility Score (0–100)", 0, 100, 50)
+urgency = st.sidebar.selectbox("Urgency", ["Low", "Medium", "High"])
 
-st.title("Kidney Matching Demo")
-st.markdown("Prototype built with match scoring and graph-based cycles.")
+if st.sidebar.button("Add Pair"):
+    st.session_state.pairs.append({
+        'patient': patient_name,
+        'donor': donor_name,
+        'hla': hla_score,
+        'urgency': urgency
+    })
 
-# Form
-with st.form("add_pair"):
-    pair_id = st.text_input("Pair ID", value=f"P{len(st.session_state.data)+1}")
-    donor_bg = st.selectbox("Donor Blood Group", ["O", "A", "B", "AB"])
-    recipient_bg = st.selectbox("Recipient Blood Group", ["O", "A", "B", "AB"])
-    hla_match = st.slider("HLA Match Score (1-5)", 1, 5, 3)
-    urgency = st.slider("Urgency Score (1-3)", 1, 3, 2)
-    submit = st.form_submit_button("Add Pair")
-    if submit:
-        st.session_state.data.append({
-            "pair_id": pair_id,
-            "donor_bg": donor_bg,
-            "recipient_bg": recipient_bg,
-            "hla_match": hla_match,
-            "urgency": urgency
-        })
-        st.success(f"Added pair {pair_id}.")
+# 🧠 AI Matching (greedy + urgency-aware)
+def match_pairs(pairs):
+    G = nx.Graph()
+    for i, p1 in enumerate(pairs):
+        for j, p2 in enumerate(pairs):
+            if i != j:
+                score = (p1['hla'] + p2['hla']) / 2
+                if score > 50:
+                    G.add_edge(i, j, weight=score)
+    matches = list(nx.max_weight_matching(G, maxcardinality=True))
+    return matches
 
-# Table
-df = pd.DataFrame(st.session_state.data)
-st.subheader("🔍 Current Pairs")
+# 🪙 Simulated Blockchain Logging
+def log_match_to_chain(pair1, pair2):
+    # Simulate blockchain tx hash
+    tx_hash = f"0xFAKEHASH{random.randint(100000,999999)}"
+    return tx_hash
+
+# 🚑 Transport Optimizer (dummy logic)
+def estimate_route_time(city1="City A", city2="City B"):
+    return random.randint(1, 6)
+
+# 📉 Rejection Risk Model (placeholder)
+def predict_rejection(hla, urgency):
+    model = RandomForestClassifier()
+    X_train = [[30, 0], [60, 1], [90, 2]]
+    y_train = [1, 0, 0]
+    model.fit(X_train, y_train)
+    urgency_map = {"Low": 0, "Medium": 1, "High": 2}
+    return model.predict_proba([[hla, urgency_map[urgency]]])[0][1]
+
+# 📊 Dashboard
+st.title("Kidney Transplant Coordination Platform")
+df = pd.DataFrame(st.session_state.pairs)
+st.subheader("📋 Patient-Donor Registry")
 st.dataframe(df)
 
-# Graph
-G = nx.DiGraph()
-for row in st.session_state.data:
-    G.add_node(row["pair_id"], **row)
+if st.button("🔄 Run Matching"):
+    matches = match_pairs(st.session_state.pairs)
+    st.subheader("🔗 Matches Found")
+    for a, b in matches:
+        p1 = st.session_state.pairs[a]
+        p2 = st.session_state.pairs[b]
+        st.success(f"{p1['patient']} ⇄ {p2['patient']}")
+        tx = log_match_to_chain(p1, p2)
+        st.caption(f"🪙 Simulated Blockchain Tx: `{tx}`")
+        time_est = estimate_route_time()
+        st.caption(f"🚑 Estimated Transport Time: {time_est} hrs")
+        risk1 = predict_rejection(p1['hla'], p1['urgency'])
+        risk2 = predict_rejection(p2['hla'], p2['urgency'])
+        st.warning(f"📉 Rejection Risk - {p1['patient']}: {risk1:.2f}, {p2['patient']}: {risk2:.2f}")
 
-for i in range(len(st.session_state.data)):
-    for j in range(len(st.session_state.data)):
-        if i != j:
-            src = st.session_state.data[i]
-            tgt = st.session_state.data[j]
-            if src["donor_bg"] in compatibility[tgt["recipient_bg"]]:
-                score = tgt["hla_match"] + tgt["urgency"]
-                G.add_edge(src["pair_id"], tgt["pair_id"], score=score)
+# Compatibility Graph
+st.subheader("🕸️ Compatibility Graph")
+G = nx.Graph()
+for i, p in enumerate(st.session_state.pairs):
+    G.add_node(i, label=p['patient'])
 
-# Find cycles
-def find_cycles(graph, max_length=3):
-    cycles = []
-    for cycle in nx.simple_cycles(graph):
-        if 2 <= len(cycle) <= max_length:
-            total_score = sum(graph.edges[cycle[i], cycle[(i+1)%len(cycle)]]['score']
-                              for i in range(len(cycle)))
-            cycles.append((cycle, total_score))
-    return sorted(cycles, key=lambda x: -x[1])
+for i, p1 in enumerate(st.session_state.pairs):
+    for j, p2 in enumerate(st.session_state.pairs):
+        if i != j and (p1['hla'] + p2['hla']) / 2 > 50:
+            G.add_edge(i, j)
 
-match_chains = find_cycles(G)
-
-st.subheader("✅ Suggested Match Chains")
-if match_chains:
-    for cycle, score in match_chains:
-        st.markdown(f"**{' → '.join(cycle)} → {cycle[0]}** | Score: {score}")
-else:
-    st.info("No match chains found.")
-
-# Graph viz
-st.subheader("📊 Compatibility Graph")
-fig, ax = plt.subplots(figsize=(8, 6))
-pos = nx.spring_layout(G, seed=42)
-nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=2000, font_size=10, ax=ax)
-edge_labels = nx.get_edge_attributes(G, 'score')
-nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='green', ax=ax)
+fig, ax = plt.subplots()
+nx.draw(G, with_labels=True, labels=nx.get_node_attributes(G, 'label'), node_color='skyblue', ax=ax)
 st.pyplot(fig)
 
+# 👥 Stakeholder Access Placeholder
+st.sidebar.markdown("---")
+st.sidebar.subheader("User Role")
+role = st.sidebar.radio("Select", ["Doctor", "Coordinator", "Patient"])
 
-
+if role == "Coordinator":
+    st.sidebar.success("Access: Match logs, transport estimates, blockchain logs.")
+elif role == "Doctor":
+    st.sidebar.info("Access: Compatibility view, risk prediction.")
+elif role == "Patient":
+    st.sidebar.warning("View your match status & education material.")
