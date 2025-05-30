@@ -23,7 +23,7 @@ compatibility = {
     "AB": ["AB"]
 }
 
-st.title("🚀 AI + Blockchain Powered Kidney Matching Demo")
+st.title("Kidney Matching Demo")
 st.markdown("Prototype built with match scoring and graph-based cycles.")
 
 # Form
