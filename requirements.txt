@@ -5,3 +5,4 @@ numpy
 matplotlib
 geopy
 scikit-learn
+web3
