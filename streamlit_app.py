@@ -4,11 +4,6 @@ import networkx as nx
 import random
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
-from web3 import Web3
-
-# Connect to blockchain (Ganache or Infura)
-w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))  # Replace with Infura if needed
-account = w3.eth.accounts[0]
 
 # Simulated patient-donor registry
 if 'pairs' not in st.session_state:
@@ -41,17 +36,6 @@ def match_pairs(pairs):
     matches = list(nx.max_weight_matching(G, maxcardinality=True))
     return matches
 
-# 🪙 Blockchain Logging
-def log_match_to_chain(pair1, pair2):
-    tx = {
-        'from': account,
-        'to': account,
-        'value': 0,
-        'data': Web3.to_hex(text=f"Match: {pair1['patient']} & {pair2['patient']}")
-    }
-    tx_hash = w3.eth.send_transaction(tx)
-    return tx_hash.hex()
-
 # 🚑 Transport Optimizer (dummy logic)
 def estimate_route_time(city1="City A", city2="City B"):
     return random.randint(1, 6)
@@ -78,8 +62,6 @@ if st.button("🔄 Run Matching"):
         p1 = st.session_state.pairs[a]
         p2 = st.session_state.pairs[b]
         st.success(f"{p1['patient']} ⇄ {p2['patient']}")
-        tx = log_match_to_chain(p1, p2)
-        st.caption(f"Blockchain Tx: {tx}")
         time_est = estimate_route_time()
         st.caption(f"Estimated Transport Time: {time_est} hrs")
         risk1 = predict_rejection(p1['hla'], p1['urgency'])
@@ -107,9 +89,8 @@ st.sidebar.subheader("User Role")
 role = st.sidebar.radio("Select", ["Doctor", "Coordinator", "Patient"])
 
 if role == "Coordinator":
-    st.sidebar.success("Access: Match logs, transport estimates, blockchain logs.")
+    st.sidebar.success("Access: Match logs, transport estimates.")
 elif role == "Doctor":
     st.sidebar.info("Access: Compatibility view, risk prediction.")
 elif role == "Patient":
     st.sidebar.warning("View your match status & education material.")
-
